@@ -17,7 +17,7 @@ auto slope_robust(arma::vec x, arma::vec y, double c)
     arma::uvec finites = arma::find_finite(x + y);
     x = x(finites);
     y = y(finites);
-    arma::uvec non_zeros = (x != 0);
+    arma::uvec non_zeros = arma::find(x != 0);
     auto m = arma::median(y(non_zeros)) / arma::median(x(non_zeros));
     arma::vec r = y - m * x;
     auto [loc, scale] = estimate_params(r);
