@@ -1,3 +1,4 @@
+#include <cassert>
 
 #include "basic_stats.hpp"
 #include "psi.hpp"
@@ -86,6 +87,7 @@ auto estimate_scale(arma::vec sx, double u, double s, double epsilon)
 
 auto estimate_params(arma::vec x, double loc_tol = 0.01, double scale_tol = 0.01)
 {
+    x = x(arma::find_finite(x));
     x = arma::sort(x);
     auto mad = madn(x);
     auto med = ::median(x);

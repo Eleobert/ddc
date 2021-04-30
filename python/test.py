@@ -5,7 +5,7 @@ import numpy as np
 import ctypes
 from scipy import stats
 
-lib = ctypes.cdll.LoadLibrary("cmake-build-debug/libddc.so")
+lib = ctypes.cdll.LoadLibrary("../cmake-build-debug/libddclib.so")
 
 df = pd.read_csv("trans_top_gear.csv")
 
@@ -56,25 +56,36 @@ def predict_univariate(x):
     return res
 
 
+def ddc(x, p = 0.99, min_cor = 0.5):
+    res = np.zeros(x.shape, dtype=np.float64)
+    data = x if type(x) is np.ndarray else x.to_numpy()
 
-std = predict_univariate(df)
+    lib.ddc_c(data.ctypes.data_as(ctypes.POINTER(ctypes.c_double)), data.shape[0], data.shape[1], ctypes.c_double(p), 
+              ctypes.c_double(min_cor), res.ctypes.data_as(ctypes.POINTER(ctypes.c_double)))
 
-std = std.loc[["Audi A4", "BMW i3", "Chevrolet Cruze", "Corvette C6", "Fiat 500 Abarth", "Ford Kuga", "Honda CR-V",
+    if type(x) is pd.DataFrame:
+        res = pd.DataFrame(res, index=x.index, columns=x.columns)
+    return res
+
+sample = ["Audi A4", "BMW i3", "Chevrolet Cruze", "Corvette C6", "Fiat 500 Abarth", "Ford Kuga", "Honda CR-V",
                 "Land Rover Defender", "Mazda CX-5", "Mercedes-Benz G", "Mini Coupe", "Peugeot 107", "Porsche Boxster",
-                "Renault Clio", "Ssangyong Rodius", "Suzuki Jimny", "Volkswagen Golf"], :]
+                "Renault Clio", "Ssangyong Rodius", "Suzuki Jimny", "Volkswagen Golf"]
 
-print(std)
-print("\vouliers:\n", std.reset_index().melt(id_vars='Unnamed: 0').query('value > 0.99'))
-std[std <= 0.99] = 0
-std[std > 0.99] = 1
+print("\noriginal data:\n", df.loc[sample, :])
+res = ddc(df)
 
+print("\ndata after prediction:\n", res.loc[sample, :])
 
-import numpy as np 
-from pandas import DataFrame
-import matplotlib.pyplot as plt
+res = res.loc[sample, :]
+df  = df.loc[sample, :]
 
-plt.pcolor(std)
-plt.yticks(np.arange(0.5, len(std.index), 1), std.index)
-plt.xticks(np.arange(0.5, len(std.columns), 1), std.columns)
-plt.show()
+mae = (res - df).abs().to_numpy().flatten()
+mae = mae[~np.isnan(mae)]
+mae = mae.mean()
+
+print("\values that were fixed:\n", res != df)
+
+from sklearn.metrics import mean_absolute_error
+
+print("\nmae: ", mae)
 
