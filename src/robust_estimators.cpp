@@ -88,6 +88,12 @@ auto estimate_scale(arma::vec sx, double u, double s, double epsilon)
 auto estimate_params(arma::vec x, double loc_tol = 0.01, double scale_tol = 0.01)
 {
     x = x(arma::find_finite(x));
+
+    if(x.empty())
+    {
+         return std::make_tuple(arma::datum::nan, arma::datum::nan);
+    }
+
     x = arma::sort(x);
     auto mad = madn(x);
     auto med = ::median(x);
@@ -106,6 +112,14 @@ auto estimate_params(arma::mat x, double loc_tol = 0.01, double scale_tol = 0.01
     {
         arma::vec col = x.col(i);
         col = col(arma::find_finite(col));
+
+        if(col.empty())
+        {
+            locs(i) = arma::datum::nan;
+            scales(i) = arma::datum::nan;
+            continue;
+        }
+        
         auto med = ::median(col);
         auto mad = madn(col);
         locs(i) = estimate_loc(col, med, loc_tol);
