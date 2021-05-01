@@ -13,7 +13,7 @@
  * @param epsilon the tolerance parameter. The algorithm stops iterating when |μ_{k+1} - μ_k| < epsilon * σ^
  */
 
-auto estimate_loc(const arma::vec& sx, double u, double epsilon)
+auto estimate_loc(const arma::vec& sx, double u, double epsilon, int max_iter)
 {
 #ifdef NDEBUG
     assert(sx.is_sorted());
@@ -32,14 +32,15 @@ auto estimate_loc(const arma::vec& sx, double u, double epsilon)
     });
     return w;
     };
-
+    int iter = 0;
     do
     {
         pu = u;
         w  = weight((sx - u) / s);
         u  = arma::sum(w % sx) / arma::sum(w);;
+        iter++;
 
-    } while(std::abs(pu - u) > epsilon * s);
+    } while(std::abs(pu - u) > epsilon * s && iter < max_iter);
 
     return u;
 }
@@ -52,7 +53,7 @@ auto estimate_loc(const arma::vec& sx, double u, double epsilon)
  * @param s initial dispersion estimate (for instance, the normalized mad)
  * @param epsilon the tolerance parameter. The algorithm stops iterating when |σ_{k+1} / σ_k - 1| <= epsilon
  */
-auto estimate_scale(arma::vec sx, double u, double s, double epsilon)
+auto estimate_scale(arma::vec sx, double u, double s, double epsilon, double max_iter)
 {
 #ifdef NDEBUG
     assert(sx.is_sorted());
@@ -72,20 +73,21 @@ auto estimate_scale(arma::vec sx, double u, double s, double epsilon)
 
     auto ps = 0.0; // previous s
     const auto n = static_cast<int>(sx.n_elem);
-
+    auto iter = 0;
     do
     {
         ps = s;
         arma::vec w = weight(sx / s);
         s = std::sqrt(arma::sum(w % sx % sx) / n);
+        iter++;
 
-    } while(std::abs(s / ps  - 1) > epsilon);
+    } while(std::abs(s / ps  - 1) > epsilon && iter < max_iter);
 
     return s;
 }
 
 
-auto estimate_params(arma::vec x, double loc_tol = 0.01, double scale_tol = 0.01)
+auto estimate_params(arma::vec x, double loc_tol, double scale_tol, int max_iter)
 {
     x = x(arma::find_finite(x));
 
@@ -97,13 +99,13 @@ auto estimate_params(arma::vec x, double loc_tol = 0.01, double scale_tol = 0.01
     x = arma::sort(x);
     auto mad = madn(x);
     auto med = ::median(x);
-    auto loc = estimate_loc(x, med, loc_tol);
-    auto scale = estimate_scale(x, loc, mad, scale_tol);
+    auto loc = estimate_loc(x, med, loc_tol, max_iter);
+    auto scale = estimate_scale(x, loc, mad, scale_tol, max_iter);
     return std::make_tuple(loc, scale);
 }
 
 
-auto estimate_params(arma::mat x, double loc_tol = 0.01, double scale_tol = 0.01)
+auto estimate_params(arma::mat x, double loc_tol, double scale_tol, int max_iter)
 {
     arma::vec locs(x.n_cols);
     arma::vec scales(x.n_cols);
@@ -122,8 +124,8 @@ auto estimate_params(arma::mat x, double loc_tol = 0.01, double scale_tol = 0.01
         
         auto med = ::median(col);
         auto mad = madn(col);
-        locs(i) = estimate_loc(col, med, loc_tol);
-        scales(i) = estimate_scale(col, locs(i), mad, scale_tol);
+        locs(i) = estimate_loc(col, med, loc_tol, max_iter);
+        scales(i) = estimate_scale(col, locs(i), mad, scale_tol, max_iter);
         locs(i) = med;
         scales(i) = mad;
     }
@@ -137,7 +139,7 @@ auto standardise(arma::mat x)
     arma::vec locations;
     arma::vec scales;
 
-    std::tie(locations, scales) = estimate_params(x);
+    std::tie(locations, scales) = estimate_params(x, 0.1, 0.1, 100);
 
     x = x.each_row() - locations.t();
     x = x.each_row() / scales.t();
