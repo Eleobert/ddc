@@ -163,7 +163,7 @@ auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
 
     // univariate outlier detection
     arma::mat z = scale(x, locs, scales);
-    arma::mat u = fill(z, z > c, arma::datum::nan);
+    arma::mat u = fill(z, arma::abs(z) > c, arma::datum::nan);
     
     arma::mat cor = cor_wrap(u);
     // cor < min_cor are not good enought. We will ignore it.
@@ -173,14 +173,14 @@ auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
     arma::mat preds  = predict(u, cor, slopes);
     //z = z.each_row() % get_slopes_2(x, z, c);
     
-    arma::mat r = standardised_residuals(z, preds);
+    arma::mat r = standardised_residuals(u, preds);
 
-    z = fill(z, arma::abs(r) > c, arma::datum::nan);
-    z.rows(find_outlier_rows(r, c)).fill(arma::datum::nan);
+    u = fill(z, arma::abs(r) > c, arma::datum::nan);
+    u.rows(find_outlier_rows(r, c)).fill(arma::datum::nan);
 
     preds = unscale(preds, locs, scales);
 
-    x(arma::find_nonfinite(z)) = preds(arma::find_nonfinite(z));
+    x(arma::find_nonfinite(u)) = preds(arma::find_nonfinite(u));
 
     return x;
 }
