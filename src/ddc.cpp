@@ -171,7 +171,7 @@ auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
 
     arma::mat slopes = get_slopes(u, cor, c);
     arma::mat preds  = predict(u, cor, slopes);
-    //z = z.each_row() % get_slopes_2(x, z, c);
+    preds.each_row() %= get_slopes_2(preds, z, c);
     
     arma::mat r = standardised_residuals(u, preds);
 
