@@ -106,9 +106,9 @@ auto predict(const arma::mat& x, const arma::mat& cor, const arma::mat& slopes)
     {
         arma::mat predictions_h = x.each_row() % slopes.row(h);
         arma::uvec correlated   = arma::find_finite(slopes.col(h)); // slopes is symetric
-        arma::rowvec rcor       = cor.row(h);
+        arma::rowvec weight     = cor.row(h);
         // why I have to transpose the second argument is still a mistery for me.
-        z.col(h) = combine(predictions_h.cols(correlated), rcor(correlated).t());
+        z.col(h) = combine(predictions_h.cols(correlated), weight(correlated).t());
     }
     return z;
 }
@@ -133,7 +133,7 @@ auto find_outlier_rows(arma::mat r, double c)
     {
         arma::vec row = r.row(i).t();
         row = row(arma::find_finite(row));
-        res(i) = arma::mean(row) > c;
+        res(i) = row.empty() || arma::mean(row) > c;
     }
     return res;
 }
