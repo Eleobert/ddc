@@ -18,7 +18,7 @@ auto slope_robust(arma::vec x, arma::vec y, double c)
     x = x(finites);
     y = y(finites);
     arma::uvec non_zeros = arma::find(x != 0);
-    if(non_zeros.size() == x.size())
+    if(non_zeros.empty())
     {
         return arma::datum::nan;
     }
