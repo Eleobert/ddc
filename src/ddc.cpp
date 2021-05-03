@@ -155,6 +155,13 @@ auto unscale(arma::mat x, const arma::vec& loc, const arma::vec& scale)
 }
 
 
+auto deshrink(arma::mat x, arma::mat y, double c)
+{
+    x.each_row() %= get_slopes_2(x, y, c);
+    return x;
+}
+
+
 auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
 {    
     auto c = cutoff(p);
@@ -171,7 +178,7 @@ auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
 
     arma::mat slopes = get_slopes(u, cor, c);
     arma::mat preds  = predict(u, cor, slopes);
-    preds.each_row() %= get_slopes_2(preds, z, c);
+    preds = deshrink(preds, u, c);
     
     arma::mat r = standardised_residuals(u, preds);
 
