@@ -25,12 +25,12 @@ auto estimate_loc(const arma::vec& sx, double u, double epsilon, int max_iter)
 
     auto weight = [](const arma::vec& x) -> arma::vec
     {
-    arma::vec w(x.n_elem);
-    std::transform(x.begin(), x.end(), w.begin(),[](double x)
-    {
-    return (x != 0)? psi::huber(x) / x: 0;
-    });
-    return w;
+        arma::vec w(x.n_elem);
+        std::transform(x.begin(), x.end(), w.begin(),[](double x)
+        {
+            return (x != 0)? psi::huber(x) / x: 0;
+        });
+        return w;
     };
     int iter = 0;
     do
@@ -53,7 +53,7 @@ auto estimate_loc(const arma::vec& sx, double u, double epsilon, int max_iter)
  * @param s initial dispersion estimate (for instance, the normalized mad)
  * @param epsilon the tolerance parameter. The algorithm stops iterating when |σ_{k+1} / σ_k - 1| <= epsilon
  */
-auto estimate_scale(arma::vec sx, double u, double s, double epsilon, double max_iter)
+auto estimate_scale(arma::vec sx, double u, double s, double epsilon, int max_iter)
 {
 #ifdef NDEBUG
     assert(sx.is_sorted());
@@ -97,8 +97,8 @@ auto estimate_params(arma::vec x, double loc_tol, double scale_tol, int max_iter
     }
 
     x = arma::sort(x);
-    auto mad = madn(x);
-    auto med = ::median(x);
+    auto mad = madn_sorted(x);
+    auto med = median_sorted(x);
     auto loc = estimate_loc(x, med, loc_tol, max_iter);
     auto scale = estimate_scale(x, loc, mad, scale_tol, max_iter);
     return std::make_tuple(loc, scale);
@@ -121,13 +121,11 @@ auto estimate_params(arma::mat x, double loc_tol, double scale_tol, int max_iter
             scales(i) = arma::datum::nan;
             continue;
         }
-        
-        auto med = ::median(col);
-        auto mad = madn(col);
+        col = arma::sort(col);
+        auto med = median_sorted(col);
+        auto mad = madn_sorted(col);
         locs(i) = estimate_loc(col, med, loc_tol, max_iter);
         scales(i) = estimate_scale(col, locs(i), mad, scale_tol, max_iter);
-        locs(i) = med;
-        scales(i) = mad;
     }
 
     return std::make_tuple(locs, scales);
