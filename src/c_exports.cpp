@@ -43,10 +43,10 @@ auto predict_univariate_c(double* ptr, int n_rows, int n_cols, double* out_ptr)
 }
 
 
-auto ddc_c(double* ptr, int n_rows, int n_cols, double p, double min_cor, double* out_ptr)
+auto ddc_c(double* ptr, int n_rows, int n_cols, double n_cor, double p, double min_cor, double* out_ptr)
 {
     arma::mat mat(ptr, n_rows, n_cols, false);
-    arma::mat res = ddc(mat, p, min_cor);
+    arma::mat res = ddc(mat, n_cor, p, min_cor);
     res = res.t();
     std::copy(res.begin(), res.end(), out_ptr);
 }

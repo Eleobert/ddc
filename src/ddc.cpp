@@ -44,21 +44,22 @@ auto fill(const arma::mat x, Pred pred, double c)
 }
 
 
-/* Compute slopes for pairs with correlation
- */
-auto get_slopes(const arma::mat& x, const arma::mat& cor, double c)
+auto get_slopes(const arma::mat& x, const arma::umat& top_cor, double c) -> arma::mat
 {
-    assert(x.n_cols == cor.n_cols);
-    assert(cor.n_rows == cor.n_cols);
+    assert(x.n_cols == top_cor.n_cols); 
+    assert(x.n_cols >= top_cor.n_rows); 
 
-    arma::mat slopes(x.n_cols, x.n_cols);
+    arma::mat slopes(top_cor.n_rows, top_cor.n_cols);
+    slopes.fill(arma::datum::nan);
 
-    // TODO: cache optimization 
-    for(auto j = 0ull; j < x.n_cols; j++)
+    for(auto j = 0ull; j < top_cor.n_cols; j++)
     {
-        for(auto i = 0ull; i < x.n_cols; i++)
+        for(auto i = 0ull; i < top_cor.n_rows; i++)
         {
-            slopes(i, j) = std::isfinite(cor(i, j))? slope_robust(x.col(i), x.col(j), c): arma::datum::nan;
+            if(top_cor(i, j) < x.n_cols)
+            {
+                slopes(i, j) = slope_robust(x.col(top_cor(i, j)), x.col(j), c);
+            }
         }
     }
     return slopes;
@@ -87,10 +88,9 @@ auto combine(arma::mat preds, const arma::rowvec& weight)
 
     preds.each_row() %= weight;
 
-    for(auto j = 0; j < preds.n_rows; j++)
+    for(auto j = 0ull; j < preds.n_rows; j++)
     {
         arma::rowvec row = preds.row(j);
-        //std::cout << row << std::endl;
         row = row(arma::find_finite(row)).t();
         means(j) = (row.empty())? arma::datum::nan: arma::mean(row);
     }
@@ -98,17 +98,18 @@ auto combine(arma::mat preds, const arma::rowvec& weight)
 }
 
 
-auto predict(const arma::mat& x, const arma::mat& cor, const arma::mat& slopes)
+auto predict(const arma::mat& x, const arma::mat& cor, const arma::umat& top_cor, const arma::mat& slopes)
 {
     arma::mat z(x.n_rows, x.n_cols);
 
     for(auto h = 0ull; h < x.n_cols; h++)
     {
-        arma::mat predictions_h = x.each_row() % slopes.row(h);
-        arma::uvec correlated   = arma::find_finite(slopes.col(h)); // slopes is symetric
-        arma::rowvec weight     = cor.row(h);
-        // why I have to transpose the second argument is still a mistery for me.
-        z.col(h) = combine(predictions_h.cols(correlated), weight(correlated).t());
+        arma::uvec contributors = top_cor.col(h);
+        arma::mat predictions_h = x.cols(contributors);
+        predictions_h.each_row() %= slopes.col(h).t();
+        arma::vec weight = cor.col(h);
+        weight = weight(contributors);
+        z.col(h) = combine(predictions_h, weight.t());
     }
     return z;
 }
@@ -162,7 +163,23 @@ auto deshrink(arma::mat x, arma::mat y, double c)
 }
 
 
-auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
+auto top_n(const arma::mat& x, int n)
+{
+    arma::umat res(n, x.n_cols);
+    for(auto i = 0ull; i < x.n_cols; i++)
+    {        
+        arma::vec vec = arma::abs(x.col(i));
+        vec(arma::find_nonfinite(vec)).fill(-arma::datum::inf);
+        vec(i) = -arma::datum::inf;
+        arma::uvec idx = arma::sort_index(vec, "descending");
+        idx(arma::find_nonfinite(vec)).fill(n); // for when total of correlated cols < n
+        std::copy(idx.begin(), idx.begin() + n, res.begin_col(i));
+    }
+    return res;
+}
+
+
+auto ddc(arma::mat x, int n_cor, double p, double min_cor) -> arma::mat
 {    
     auto c = cutoff(p);
 
@@ -173,11 +190,13 @@ auto ddc(arma::mat x, double p, double min_cor) -> arma::mat
     arma::mat u = fill(z, arma::abs(z) > c, arma::datum::nan);
     
     arma::mat cor = cor_wrap(u);
+    arma::umat top_cor = top_n(cor, n_cor);
     // cor < min_cor are not good enought. We will ignore it.
     cor = fill(cor, cor < min_cor, arma::datum::nan);
 
-    arma::mat slopes = get_slopes(u, cor, c);
-    arma::mat preds  = predict(u, cor, slopes);
+    arma::mat slopes = get_slopes(u, top_cor, c);
+    arma::mat preds  = predict(u, cor, top_cor, slopes);
+
     preds = deshrink(preds, u, c);
     
     arma::mat r = standardised_residuals(u, preds);
