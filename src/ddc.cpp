@@ -86,13 +86,27 @@ auto combine(arma::mat preds, const arma::rowvec& weight)
 {
     arma::vec means(preds.n_rows);
 
-    preds.each_row() %= weight;
+    auto trans = [](double x)
+    {
+        return std::pow(x, 14);
+    };
 
     for(auto j = 0ull; j < preds.n_rows; j++)
     {
         arma::rowvec row = preds.row(j);
+        arma::rowvec row_weight = weight(arma::find_finite(row)).t();
+
         row = row(arma::find_finite(row)).t();
-        means(j) = (row.empty())? arma::datum::nan: arma::mean(row);
+
+        if(row.empty())
+        {
+            means(j) = arma::datum::nan;
+            continue;
+        }
+        row_weight /= arma::max(row_weight);
+        row_weight.transform(trans);
+        row_weight /= arma::sum(row_weight);
+        means(j) = arma::sum(row % row_weight);
     }
     return means;
 }
@@ -108,7 +122,7 @@ auto predict(const arma::mat& x, const arma::mat& cor, const arma::umat& top_cor
         arma::mat predictions_h = x.cols(contributors);
         predictions_h.each_row() %= slopes.col(h).t();
         arma::vec weight = cor.col(h);
-        weight = weight(contributors);
+        weight = arma::abs(weight(contributors));
         z.col(h) = combine(predictions_h, weight.t());
     }
     return z;
