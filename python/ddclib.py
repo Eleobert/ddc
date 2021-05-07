@@ -44,17 +44,17 @@ def predict_univariate(x):
     return res
 
 
-def ddc(x, n_cor = 100, p = 0.99, min_cor = 0.5):
+def ddc(x, n_contrib = 100, p = 0.99, min_cor = 0.5):
     res = np.zeros(x.shape, dtype=np.float64)
     data = x if type(x) is np.ndarray else x.to_numpy()
     
     in_ptr = data.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-    n_cor = ctypes.c_double(n_cor)
+    n_contrib = ctypes.c_double(n_contrib)
     p = ctypes.c_double(p)
     min_cor = ctypes.c_double(min_cor)
     out_ptr = res.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
     
-    lib.ddc_c(in_ptr, data.shape[0], data.shape[1], n_cor, p, min_cor, out_ptr)
+    lib.ddc_c(in_ptr, data.shape[0], data.shape[1], n_contrib, p, min_cor, out_ptr)
 
     if type(x) is pd.DataFrame:
         res = pd.DataFrame(res, index=x.index, columns=x.columns)
